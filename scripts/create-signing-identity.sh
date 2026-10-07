@@ -37,7 +37,12 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -config "$tmp/cert.cnf" \
   -keyout "$tmp/key.pem" -out "$tmp/cert.pem" 2>/dev/null
 # Security.framework can't read OpenSSL 3's default PKCS#12 encryption, hence
 # -legacy; the system LibreSSL lacks the flag but already uses that format.
-p12=(pkcs12 -export -inkey "$tmp/key.pem" -in "$tmp/cert.pem" -out "$tmp/identity.p12" -passout pass:import)
+# -name labels the private key, so the partition list below only touches it.
+p12=(pkcs12 -export -name "$name" -inkey "$tmp/key.pem" -in "$tmp/cert.pem" -out "$tmp/identity.p12" -passout pass:import)
 openssl "${p12[@]}" -legacy 2>/dev/null || openssl "${p12[@]}"
 security import "$tmp/identity.p12" -k "$keychain" -P import -T /usr/bin/codesign
+# Without this, every build asks (via a GUI dialog) to let codesign use the key,
+# and an unanswered dialog fails the build with errSecInternalComponent.
+echo "Contraseña de tu Mac, para que codesign use la clave sin preguntar:"
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s -l "$name" "$keychain" >/dev/null
 echo "Creado: $name"
