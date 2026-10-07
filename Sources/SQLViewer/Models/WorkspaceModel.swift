@@ -8,6 +8,24 @@ struct TableEntry: Hashable, Identifiable {
     var id: String { name }
 }
 
+/// Stored procedures and functions; the raw value is information_schema's ROUTINE_TYPE.
+enum RoutineKind: String, Hashable, Sendable {
+    case procedure = "PROCEDURE"
+    case function = "FUNCTION"
+}
+
+struct RoutineRef: Hashable, Sendable {
+    let kind: RoutineKind
+    let name: String
+}
+
+/// What the sidebar can select. Tables, procedures and functions live in
+/// separate namespaces in MySQL, so a bare name isn't enough.
+enum SidebarItem: Hashable {
+    case table(String)
+    case routine(RoutineRef)
+}
+
 /// State for one open connection window: schema browser + data + SQL editor.
 ///
 /// Browsing (sidebar, table data, structure) shares one session; the SQL editor
@@ -24,20 +42,35 @@ final class WorkspaceModel: Identifiable {
 
     private(set) var databases: [String] = []
     private(set) var tables: [TableEntry] = []
+    private(set) var procedures: [String] = []
+    private(set) var functions: [String] = []
     private(set) var selectedDatabase: String?
     private(set) var dataModel: TableDataModel?
     private(set) var isLoadingTables = false
     var mode: Mode = .data
     var error: String?
 
-    var selectedTable: String? {
+    var selection: SidebarItem? {
         didSet {
-            guard selectedTable != oldValue else { return }
+            guard selection != oldValue else { return }
             dataModel = selectedTable.flatMap { table in
                 selectedDatabase.map { TableDataModel(connection: connection, database: $0, table: table) }
             }
-            if selectedTable != nil, mode == .query { mode = .data }
+            switch selection {
+            case .table: if mode == .query { mode = .data }
+            // A routine has no rows to show; its definition is its structure.
+            case .routine: mode = .structure
+            case nil: break
+            }
         }
+    }
+
+    var selectedTable: String? {
+        if case .table(let name) = selection { name } else { nil }
+    }
+
+    var selectedRoutine: RoutineRef? {
+        if case .routine(let routine) = selection { routine } else { nil }
     }
 
     static func open(_ saved: SavedConnection) async throws -> WorkspaceModel {
@@ -79,27 +112,39 @@ final class WorkspaceModel: Identifiable {
         do {
             try await connection.selectDatabase(name)
             selectedDatabase = name
-            selectedTable = nil
+            selection = nil
             editor.targetDatabase = name
-            await reloadTables()
+            await reloadObjects()
         } catch {
             self.error = error.localizedDescription
         }
     }
 
-    func reloadTables() async {
+    /// Reloads the tables, stored procedures and functions of the selected database.
+    func reloadObjects() async {
         guard let selectedDatabase else { return }
         isLoadingTables = true
         defer { isLoadingTables = false }
         do {
-            let result = try await connection.execute([
+            let tableResult = try await connection.execute([
                 "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA = ",
                 .value(selectedDatabase),
                 " ORDER BY TABLE_NAME",
             ]).first
-            tables = result?.rows.map { row in
+            tables = tableResult?.rows.map { row in
                 TableEntry(name: row[0] ?? "", isView: row[1] == "VIEW")
             } ?? []
+            // information_schema only lists routines the user has some privilege on.
+            let routineRows = try await connection.execute([
+                "SELECT ROUTINE_NAME, ROUTINE_TYPE FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = ",
+                .value(selectedDatabase),
+                " ORDER BY ROUTINE_NAME",
+            ]).first?.rows ?? []
+            func names(_ kind: RoutineKind) -> [String] {
+                routineRows.filter { $0[1] == kind.rawValue }.compactMap { $0[0] }
+            }
+            procedures = names(.procedure)
+            functions = names(.function)
         } catch {
             self.error = error.localizedDescription
         }

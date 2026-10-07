@@ -36,12 +36,12 @@ struct SidebarView: View {
             Button("Recargar", systemImage: "arrow.clockwise") {
                 Task {
                     await model.reloadDatabases()
-                    await model.reloadTables()
+                    await model.reloadObjects()
                 }
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
-            .help("Recargar bases de datos y tablas")
+            .help("Recargar bases de datos, tablas y rutinas")
         }
     }
 
@@ -64,33 +64,57 @@ struct SidebarView: View {
     }
 
     private var tableList: some View {
-        List(selection: $model.selectedTable) {
-            Section(model.selectedDatabase == nil ? "" : "Tablas (\(filtered.count))") {
-                ForEach(filtered) { table in
+        List(selection: $model.selection) {
+            Section(model.selectedDatabase == nil ? "" : "Tablas (\(filteredTables.count))") {
+                ForEach(filteredTables) { table in
                     Label(table.name, systemImage: table.isView ? "eye" : "tablecells")
-                        .tag(table.name)
+                        .tag(SidebarItem.table(table.name))
                         .contextMenu {
-                            Button("Copiar nombre") {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(table.name, forType: .string)
-                            }
+                            copyNameButton(table.name)
                             Button("Ver estructura") {
-                                model.selectedTable = table.name
+                                model.selection = .table(table.name)
                                 model.mode = .structure
                             }
                         }
                 }
             }
+            routineSection("Procedimientos", .procedure, names: model.procedures, systemImage: "curlybraces")
+            routineSection("Funciones", .function, names: model.functions, systemImage: "function")
         }
         .overlay {
-            if model.isLoadingTables, model.tables.isEmpty {
+            if model.isLoadingTables, model.tables.isEmpty, model.procedures.isEmpty, model.functions.isEmpty {
                 ProgressView()
             }
         }
     }
 
-    private var filtered: [TableEntry] {
+    @ViewBuilder
+    private func routineSection(_ title: String, _ kind: RoutineKind, names: [String], systemImage: String) -> some View {
+        let shown = filter(names)
+        if !shown.isEmpty {
+            Section("\(title) (\(shown.count))") {
+                ForEach(shown, id: \.self) { name in
+                    Label(name, systemImage: systemImage)
+                        .tag(SidebarItem.routine(RoutineRef(kind: kind, name: name)))
+                        .contextMenu { copyNameButton(name) }
+                }
+            }
+        }
+    }
+
+    private func copyNameButton(_ name: String) -> some View {
+        Button("Copiar nombre") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(name, forType: .string)
+        }
+    }
+
+    private var filteredTables: [TableEntry] {
         search.isEmpty ? model.tables : model.tables.filter { $0.name.localizedCaseInsensitiveContains(search) }
+    }
+
+    private func filter(_ names: [String]) -> [String] {
+        search.isEmpty ? names : names.filter { $0.localizedCaseInsensitiveContains(search) }
     }
 
     private var databaseBinding: Binding<String?> {

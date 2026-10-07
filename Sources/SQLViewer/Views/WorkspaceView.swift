@@ -36,13 +36,23 @@ struct WorkspaceView: View {
     }
 
     private var subtitle: String {
-        [model.selectedDatabase, model.mode == .query ? nil : model.selectedTable]
+        [model.selectedDatabase, model.mode == .query ? nil : model.selectedTable ?? model.selectedRoutine?.name]
             .compactMap(\.self)
             .joined(separator: " › ")
     }
 
     @ViewBuilder
     private var detail: some View {
+        if model.mode != .query, let database = model.selectedDatabase, let routine = model.selectedRoutine {
+            RoutineView(connection: model.connection, database: database, routine: routine)
+                .id(routine)
+        } else {
+            modeDetail
+        }
+    }
+
+    @ViewBuilder
+    private var modeDetail: some View {
         switch model.mode {
         case .query:
             QueryEditorView(model: model.editor)

@@ -25,7 +25,8 @@ final class SQLEditorController {
 
 struct SQLTextView: NSViewRepresentable {
     @Binding var text: String
-    let controller: SQLEditorController
+    var controller: SQLEditorController?
+    var isEditable = true
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
@@ -36,6 +37,7 @@ struct SQLTextView: NSViewRepresentable {
 
         textView.font = font
         textView.typingAttributes = [.font: font, .foregroundColor: NSColor.textColor]
+        textView.isEditable = isEditable
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
@@ -56,7 +58,7 @@ struct SQLTextView: NSViewRepresentable {
         if let storage = textView.textStorage {
             SQLHighlighter.highlight(storage)
         }
-        controller.textView = textView
+        controller?.textView = textView
         return scrollView
     }
 
@@ -92,7 +94,10 @@ final class SQLHighlighter: NSObject, NSTextStorageDelegate {
         DEFAULT AUTO_INCREMENT CONSTRAINT IF CASE WHEN THEN ELSE END ASC DESC SHOW DESCRIBE EXPLAIN USE \
         BEGIN COMMIT ROLLBACK START TRANSACTION WITH RECURSIVE TRUNCATE REPLACE TRUE FALSE INTERVAL CALL \
         PROCEDURE FUNCTION TRIGGER RETURNS DECLARE GRANT REVOKE ADD COLUMN MODIFY CHANGE RENAME TO \
-        DUPLICATE IGNORE FOR LOCK OVER PARTITION WINDOW COUNT SUM AVG MIN MAX
+        DUPLICATE IGNORE FOR LOCK OVER PARTITION WINDOW COUNT SUM AVG MIN MAX \
+        DEFINER SQL SECURITY INVOKER DETERMINISTIC READS MODIFIES DATA CONTAINS NO OUT INOUT RETURN \
+        ELSEIF LOOP WHILE DO REPEAT UNTIL LEAVE ITERATE CURSOR HANDLER CONTINUE EXIT FETCH OPEN CLOSE \
+        SIGNAL RESIGNAL SQLSTATE
         """.split(separator: " ").joined(separator: "|")
 
     private static let regex = try! NSRegularExpression(
