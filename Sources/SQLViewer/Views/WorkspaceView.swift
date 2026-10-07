@@ -12,7 +12,10 @@ struct WorkspaceView: View {
             VStack(spacing: 0) {
                 SessionTabBar(model: sessions)
                 Divider()
+                // Fill the column: an empty-state view is only as tall as its
+                // text, and would otherwise pull the tabs to the middle.
                 detail
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .navigationTitle(model.saved.displayName)

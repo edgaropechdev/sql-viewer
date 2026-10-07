@@ -38,6 +38,7 @@ struct RootView: View {
                         Divider()
                     }
                     ConnectionListView(sessions: sessions)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
