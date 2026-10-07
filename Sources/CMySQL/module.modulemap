@@ -1,0 +1,6 @@
+// No `link` directive: Package.swift links libmysqlclient.a by full path, since
+// `-lmysqlclient` would pick the Homebrew dylib over the static archive.
+module CMySQL [system] {
+    header "/opt/homebrew/opt/mysql-client/include/mysql/mysql.h"
+    export *
+}
