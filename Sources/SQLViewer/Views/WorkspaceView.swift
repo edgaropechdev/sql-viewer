@@ -2,14 +2,18 @@ import SwiftUI
 
 struct WorkspaceView: View {
     @Bindable var model: WorkspaceModel
-    let onDisconnect: () -> Void
+    let sessions: SessionsModel
 
     var body: some View {
         NavigationSplitView {
             SidebarView(model: model)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 400)
         } detail: {
-            detail
+            VStack(spacing: 0) {
+                SessionTabBar(model: sessions)
+                Divider()
+                detail
+            }
         }
         .navigationTitle(model.saved.displayName)
         .navigationSubtitle(subtitle)
@@ -24,7 +28,7 @@ struct WorkspaceView: View {
                 .frame(width: 260)
             }
             ToolbarItem {
-                Button("Desconectar", systemImage: "eject", action: onDisconnect)
+                Button("Desconectar", systemImage: "eject") { sessions.close(model) }
                     .help("Cerrar esta sesión")
             }
         }

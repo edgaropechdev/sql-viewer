@@ -23,17 +23,22 @@ struct RootView: View {
     @State private var sessions = SessionsModel()
 
     var body: some View {
-        VStack(spacing: 0) {
-            if !sessions.sessions.isEmpty {
-                SessionTabBar(model: sessions)
-                Divider()
-            }
+        Group {
             if let active = sessions.active {
-                // Fresh view state per session; what must survive lives in the model.
-                WorkspaceView(model: active) { sessions.close(active) }
-                    .id(active.id)
+                // The split view must sit at the top of the window: macOS 26
+                // draws the toolbar's scroll-edge blur over its top, so anything
+                // stacked above it pushed that blur onto the content. The tabs
+                // go inside the detail column instead.
+                WorkspaceView(model: active, sessions: sessions)
+                    .id(active.id)  // Fresh view state per session; what must survive lives in the model.
             } else {
-                ConnectionListView(sessions: sessions)
+                VStack(spacing: 0) {
+                    if !sessions.sessions.isEmpty {
+                        SessionTabBar(model: sessions)
+                        Divider()
+                    }
+                    ConnectionListView(sessions: sessions)
+                }
             }
         }
         .frame(minWidth: 900, minHeight: 560)
