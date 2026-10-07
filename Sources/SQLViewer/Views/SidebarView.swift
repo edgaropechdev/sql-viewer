@@ -6,16 +6,24 @@ struct SidebarView: View {
     @State private var search = ""
 
     var body: some View {
-        // The picker sits above the list rather than in a safe-area inset, so
-        // scrolled table names never show through behind it.
+        // Picker and filter sit above the list, not in a safe-area inset or a
+        // system search bar, so nothing overlaps the scrolled table names.
         VStack(spacing: 0) {
-            databaseBar
+            header
             tableList
         }
-        .searchable(text: $search, placement: .sidebar, prompt: "Filtrar tablas")
     }
 
-    private var databaseBar: some View {
+    private var header: some View {
+        VStack(spacing: 6) {
+            databaseRow
+            filterField
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
+    private var databaseRow: some View {
         HStack {
             Picker("Base de datos", selection: databaseBinding) {
                 Text("Elegir base de datos…").tag(String?.none)
@@ -35,8 +43,24 @@ struct SidebarView: View {
             .buttonStyle(.borderless)
             .help("Recargar bases de datos y tablas")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+    }
+
+    private var filterField: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Filtrar tablas", text: $search)
+                .textFieldStyle(.plain)
+            if !search.isEmpty {
+                Button("Limpiar filtro", systemImage: "xmark.circle.fill") { search = "" }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(.quaternary, in: .rect(cornerRadius: 7))
     }
 
     private var tableList: some View {
